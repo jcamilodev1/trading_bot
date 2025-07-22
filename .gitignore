@@ -1,0 +1,28 @@
+# Archivos de Python
+*.pyc
+__pycache__/
+
+# Archivos de configuración y estado
+*.json
+
+# Archivos de datos
+*.csv
+
+# Archivos de entorno
+.env
+
+# Archivos de logs
+*.log
+
+# Archivos de VS Code
+.vscode/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Modelos y archivos grandes
+trading_model_v2*
+trading_model.joblib
+trading_model_v3*
+trading_filter_mo*
