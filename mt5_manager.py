@@ -2,6 +2,7 @@
 import MetaTrader5 as mt5
 import pandas as pd
 import logging
+import config as cfg
 import time
 from config import *
 from state_manager import save_trailing_stop_state
@@ -23,7 +24,7 @@ def get_rates(symbol, timeframe, bars):
         return pd.DataFrame()
 
 def send_trade_request(request, symbol):
-    for i in range(MAX_RETRIES):
+    for i in range(cfg.MAX_RETRIES):
         result = mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             action_desc = request.get('action_description', request['action'])
@@ -31,8 +32,8 @@ def send_trade_request(request, symbol):
             print(f"✅ [{symbol}] Operación exitosa. Ticket: {result.order}, Tipo: {action_desc}, Vol: {request['volume']:.2f}")
             return True, result
         else:
-            logging.error(f"[{symbol}] Falló la operación ({i+1}/{MAX_RETRIES}). Error: {result.retcode} - {result.comment}. Solicitud: {request}")
-            print(f"❌ [{symbol}] Falló la operación. Código: {result.retcode}, Comentario: {result.comment}. Reintento {i+1}/{MAX_RETRIES}")
+            logging.error(f"[{symbol}] Falló la operación ({i+1}/{cfg.MAX_RETRIES}). Error: {result.retcode} - {result.comment}. Solicitud: {request}")
+            print(f"❌ [{symbol}] Falló la operación. Código: {result.retcode}, Comentario: {result.comment}. Reintento {i+1}/{cfg.MAX_RETRIES}")
             if result.retcode == mt5.TRADE_RETCODE_REQUOTE:
                 logging.warning(f"[{symbol}] Requote detectado. Reintentando...")
                 time.sleep(1)
@@ -41,8 +42,8 @@ def send_trade_request(request, symbol):
                 return True, result
             else:
                 time.sleep(1)
-    logging.error(f"[{symbol}] Fallo definitivo de la operación después de {MAX_RETRIES} reintentos.")
-    print(f"🔴 [{symbol}] Fallo definitivo después de {MAX_RETRIES} intentos.")
+    logging.error(f"[{symbol}] Fallo definitivo de la operación después de {cfg.MAX_RETRIES} reintentos.")
+    print(f"🔴 [{symbol}] Fallo definitivo después de {cfg.MAX_RETRIES} intentos.")
     return False, None
 
 def calculate_universal_lot_size(symbol, account_info, atr_val):
