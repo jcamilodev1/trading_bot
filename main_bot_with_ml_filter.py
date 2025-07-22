@@ -12,29 +12,39 @@ import state_manager as sm
 
 # ... (El código para cargar el modelo no cambia) ...
 try:
-    ml_model = joblib.load('trading_filter_model.joblib')
+    ml_model = joblib.load('models/trading_filter_model.joblib')
     print("✅ Modelo de Machine Learning cargado exitosamente.")
 except FileNotFoundError:
     print("❌ ERROR: No se encontró el archivo del modelo 'trading_filter_model.joblib'.")
     ml_model = None
 
 # --- LÓGICA DE LA ESTRATEGIA V4 CON DIAGNÓSTICO FINAL ---
-def get_v4_signal_candidate_with_debug(df):
+def get_v4_signal_candidate_reviewed(df, adx_threshold, rsi_buy_threshold, rsi_sell_threshold):
+    """
+    Genera una señal de trading con diagnóstico, mayor robustez y parámetros configurables.
+    """
     if df.empty or len(df) < 100:
         return "HOLD", "Datos insuficientes", None
 
+    epsilon = 1e-9 # Valor pequeño para evitar divisiones por cero
+
     # --- Cálculo de Indicadores ---
-    # ... (Cálculos idénticos)
+    # MACD
     ema_fast = df['close'].ewm(span=cfg.MACD_FAST, adjust=False).mean()
     ema_slow = df['close'].ewm(span=cfg.MACD_SLOW, adjust=False).mean()
     df['macd_hist'] = (ema_fast - ema_slow) - (ema_fast - ema_slow).ewm(span=cfg.MACD_SIGNAL, adjust=False).mean()
     df['macd_hist_prev'] = df['macd_hist'].shift(1)
+    
+    # RSI (con corrección de división por cero)
     delta = df['close'].diff(1)
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
     avg_gain = gain.ewm(span=cfg.RSI_PERIOD, adjust=False).mean()
     avg_loss = loss.ewm(span=cfg.RSI_PERIOD, adjust=False).mean()
-    df['rsi'] = 100 - (100 / (1 + avg_gain / avg_loss))
+    rs = avg_gain / (avg_loss + epsilon)
+    df['rsi'] = 100 - (100 / (1 + rs))
+
+    # ADX (con corrección de división por cero)
     high_low = df['high'] - df['low']
     high_prev_close = abs(df['high'] - df['close'].shift())
     low_prev_close = abs(df['low'] - df['close'].shift())
@@ -45,9 +55,9 @@ def get_v4_signal_candidate_with_debug(df):
     minus_dm[minus_dm > 0] = 0
     tr_adx = pd.DataFrame({'tr': tr, 'plus_dm': plus_dm, 'minus_dm': abs(minus_dm)})
     atr_adx = tr_adx['tr'].ewm(span=cfg.ADX_PERIOD, adjust=False).mean()
-    plus_di = 100 * (tr_adx['plus_dm'].ewm(span=cfg.ADX_PERIOD, adjust=False).mean() / atr_adx)
-    minus_di = 100 * (tr_adx['minus_dm'].ewm(span=cfg.ADX_PERIOD, adjust=False).mean() / atr_adx)
-    dx = 100 * (abs(plus_di - minus_di) / (plus_di + minus_di))
+    plus_di = 100 * (tr_adx['plus_dm'].ewm(span=cfg.ADX_PERIOD, adjust=False).mean() / (atr_adx + epsilon))
+    minus_di = 100 * (tr_adx['minus_dm'].ewm(span=cfg.ADX_PERIOD, adjust=False).mean() / (atr_adx + epsilon))
+    dx = 100 * (abs(plus_di - minus_di) / (plus_di + minus_di + epsilon))
     df['adx'] = dx.ewm(span=cfg.ADX_PERIOD, adjust=False).mean()
     df['atr_normalized'] = (tr.ewm(span=cfg.ATR_PERIOD, adjust=False).mean()) / df['close']
 
@@ -57,11 +67,7 @@ def get_v4_signal_candidate_with_debug(df):
         
     current_row = df.iloc[-1]
 
-    # --- LÓGICA DE DIAGNÓSTICO MEJORADA ---
-    adx_threshold = 20
-    rsi_buy_threshold = 50
-    rsi_sell_threshold = 50
-
+    # --- LÓGICA DE DIAGNÓSTICO USANDO PARÁMETROS EXTERNOS ---
     adx_val = current_row['adx']
     if adx_val <= adx_threshold:
         reason = f"ADX bajo (actual: {adx_val:.2f}, esperado: > {adx_threshold})"
@@ -73,7 +79,6 @@ def get_v4_signal_candidate_with_debug(df):
     sell_cross = macd_hist_val < 0 and macd_hist_prev_val > 0
     
     if not buy_cross and not sell_cross:
-        # --- ESTE ES EL CAMBIO PRINCIPAL ---
         esperado_buy = "anterior < 0 y actual > 0"
         esperado_sell = "anterior > 0 y actual < 0"
         reason = (f"Sin cruce de MACD (actual: {macd_hist_val:.5f}, anterior: {macd_hist_prev_val:.5f}). "
@@ -96,7 +101,6 @@ def get_v4_signal_candidate_with_debug(df):
             return "HOLD", reason, None
 
     return "HOLD", "Condición no determinada", None
-
 # --- El resto del archivo (función main) es idéntico al anterior ---
 def main():
     if ml_model is None:
@@ -142,8 +146,12 @@ def main():
                         print(f"[{symbol}] ⚠️ Datos insuficientes para el análisis. Saltando.")
                         continue
 
-                    signal_candidate, reason, features_df = get_v4_signal_candidate_with_debug(df)
-                    
+                    signal_candidate, reason, features_df = get_v4_signal_candidate_reviewed(
+                        df,
+                        cfg.ADX_THRESHOLD,
+                        cfg.RSI_BUY_THRESHOLD,
+                        cfg.RSI_SELL_THRESHOLD
+                    )
                     if signal_candidate == "HOLD":
                         print(f"[{symbol}] 🤖 Resultado: HOLD. Razón: {reason}")
                     else: 

@@ -11,8 +11,7 @@ Este proyecto es un bot de trading automatizado para MetaTrader 5, diseñado par
 - Configuración flexible mediante el archivo `config.py`
 
 ## Estructura del proyecto
-- `main_bot_with_ml_filter.py`: Script principal del bot de trading con filtro de Machine Learning
-- `main_bot.py` / `main_bot_final.py`: Scripts alternativos del bot de trading
+- `main_bot.py` / `main_bot_final.py`: Scripts principales del bot de trading
 - `config.py`: Configuración de parámetros del bot e indicadores
 - `indicators.py`: Implementación de indicadores técnicos
 - `mt5_manager.py`: Funciones para interactuar con MetaTrader 5
@@ -32,9 +31,9 @@ pip install -r requirements.txt
 ```
 
 ## Ejecución
-Ejecuta el bot principal con filtro ML:
+Ejecuta el bot principal:
 ```powershell
-python main_bot_with_ml_filter.py
+python main_bot_final.py
 ```
 
 ## Backtesting

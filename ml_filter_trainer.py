@@ -54,6 +54,6 @@ if __name__ == "__main__":
     print(classification_report(y_test, predictions, target_names=['Loser (0)', 'Winner (1)']))
 
     # 6. Guardar el modelo de filtro final
-    model_filename = 'trading_filter_model.joblib'
+    model_filename = '/models/trading_filter_model.joblib'
     joblib.dump(model, model_filename)
     print(f"\n✅ Modelo de FILTRO guardado como '{model_filename}'")
